@@ -11,6 +11,10 @@ class PersonalBlockHashValidator(private val blockHashProvider: BlockHashProvide
 
     fun isHashValid(hash: ByteArray): Boolean {
         val lastByte = hash.last()
-        return (lastByte and 0x00001111.toByte()) == 0.toByte()
+        return (lastByte and miningComplexity) == 0.toByte()
+    }
+
+    companion object {
+        private const val miningComplexity: Byte = 0x11111111.toByte() // todo
     }
 }

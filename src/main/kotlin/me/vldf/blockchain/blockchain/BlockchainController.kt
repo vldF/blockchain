@@ -1,19 +1,21 @@
-package me.vldf.blockchain.models
+package me.vldf.blockchain.blockchain
 
+import me.vldf.blockchain.models.Block
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
 import org.jetbrains.annotations.TestOnly
 
-class Blockchain(
+class BlockchainController(
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
 ) {
-    private val blocks = mutableListOf<Block>()
+    private val blockchain = Blockchain()
 
     private val logger by platformLogger()
 
     fun validate(): Boolean {
+        val blocks = blockchain.blocks
         for (block in blocks) {
             if (block.index == 0) {
                 // genesis block
@@ -37,6 +39,7 @@ class Blockchain(
             return false
         }
 
+        val blocks = blockchain.blocks
         val lastSavedBlock = blocks.last()
         if (lastSavedBlock.index > block.index) {
             logger.severe("validation of a single block failed: block is too old $block")
@@ -56,22 +59,30 @@ class Blockchain(
             return false
         }
 
-        add(block)
+        blockchain.add(block)
 
         return true
     }
 
-    fun add(block: Block) {
-        blocks.add(block)
+    val lastBlock: Block
+        get() = blockchain.lastBlock
+
+    val blockCount: Int
+        get() = blockchain.blockCount
+
+    @Throws(IllegalArgumentException::class)
+    fun getBlocksByRange(from: Int, to: Int): List<Block> {
+        check(from <= to) { "the start index must be less than or equal to the end index" }
+        check(from >= 0) { "the start index must be non-negative" }
+        check(to <= blockchain.blockCount) { "the end index must be less than or equal to block count" }
+
+        return blockchain.blocks.subList(from, to)
     }
 
-    fun getLastBlock(): Block {
-        return blocks.last()
-    }
-
-    @TestOnly
-    fun getBlockCount(): Int {
-        return blocks.size
+    fun getBlockHashes(): List<ByteArray> {
+        return blockchain.blocks.map { block ->
+            blockHashProvider.computeHash(block)
+        }
     }
 
     fun initGenesis() {
@@ -82,6 +93,11 @@ class Blockchain(
             nonce = 0
         )
 
-        add(block)
+        blockchain.add(block)
+    }
+
+    @TestOnly
+    fun getBlockchain(): Blockchain {
+        return blockchain
     }
 }

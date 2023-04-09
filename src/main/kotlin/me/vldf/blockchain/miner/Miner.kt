@@ -1,14 +1,14 @@
 package me.vldf.blockchain.miner
 
+import me.vldf.blockchain.blockchain.BlockchainController
 import me.vldf.blockchain.models.Block
-import me.vldf.blockchain.models.Blockchain
 import me.vldf.blockchain.services.BlockDataProvider
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
 
 class Miner(
-    private val blockchain: Blockchain,
+    private val blockchainController: BlockchainController,
     private val dataProvider: BlockDataProvider,
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
@@ -27,7 +27,7 @@ class Miner(
     private fun mineNext() {
         val nextBlockData = dataProvider.getData()
 
-        val lastBlock = blockchain.getLastBlock()
+        val lastBlock = blockchainController.lastBlock
         val prevHash = blockHashProvider.computeHash(lastBlock)
         val index = lastBlock.index + 1
 
@@ -50,6 +50,6 @@ class Miner(
 
     private fun onNewBlockMined(block: Block) {
         logger.info("new block #${block.index} mined")
-        blockchain.validateAndAdd(block)
+        blockchainController.validateAndAdd(block)
     }
 }

@@ -1,7 +1,7 @@
 package me.vldf.blockchain.tests
 
+import me.vldf.blockchain.blockchain.BlockchainController
 import me.vldf.blockchain.models.Block
-import me.vldf.blockchain.models.Blockchain
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import kotlin.test.Test
@@ -9,106 +9,108 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class BlockchainTests {
+class BlockchainControllerTests {
     private val blockHashProvider = BlockHashProvider()
     private val personalBlockHashValidator = PersonalBlockHashValidator(blockHashProvider)
 
     @Test
     fun `initGenesis() test, only one genesis node created`() {
-        val blockchain = getBlockchain()
+        val blockchainController = getBlockchainController()
 
-        assertEquals(blockchain.getBlockCount(), 0)
-        blockchain.initGenesis()
-        assertEquals(blockchain.getBlockCount(), 1)
+        assertEquals(blockchainController.blockCount, 0)
+        blockchainController.initGenesis()
+        assertEquals(blockchainController.blockCount, 1)
 
-        val genesisBlock = blockchain.getLastBlock()
+        val genesisBlock = blockchainController.lastBlock
         assertEquals(genesisBlock.index, 0)
         assertEquals(genesisBlock.prevHash.decodeToString(), "genesis")
     }
 
     @Test
     fun `addAndValidate() and block is valid, block added`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesisBlock = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        blockchainController.initGenesis()
+        val genesisBlock = blockchainController.lastBlock
 
         val newBlock = getNextValidBlock(genesisBlock)
 
-        val validationResult = blockchain.validateAndAdd(newBlock)
+        val validationResult = blockchainController.validateAndAdd(newBlock)
         assertEquals(validationResult, true)
-        assertEquals(blockchain.getBlockCount(), 2)
+        assertEquals(blockchainController.blockCount, 2)
     }
 
     @Test
     fun `addAndValidate() and block is valid, two blocks added`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesisBlock = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        blockchainController.initGenesis()
+        val genesisBlock = blockchainController.lastBlock
 
         val newBlock = getNextValidBlock(genesisBlock)
 
-        val validationResult = blockchain.validateAndAdd(newBlock)
+        val validationResult = blockchainController.validateAndAdd(newBlock)
         assertEquals(validationResult, true)
-        assertEquals(blockchain.getBlockCount(), 2)
+        assertEquals(blockchainController.blockCount, 2)
 
         val newBlock2 = getNextValidBlock(newBlock)
 
-        val validationResult2 = blockchain.validateAndAdd(newBlock2)
+        val validationResult2 = blockchainController.validateAndAdd(newBlock2)
         assertEquals(validationResult2, true)
-        assertEquals(blockchain.getBlockCount(), 3)
+        assertEquals(blockchainController.blockCount, 3)
     }
 
     @Test
     fun `validateAndAdd() index of new block is less than the last, returns false`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesisBlock = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        blockchainController.initGenesis()
+        val genesisBlock = blockchainController.lastBlock
 
         val nextValidBlock = getNextValidBlock(genesisBlock)
         val nextInvalidBlock = nextValidBlock.copy(index = -1)
-        val validationResult = blockchain.validateAndAdd(nextInvalidBlock)
+        val validationResult = blockchainController.validateAndAdd(nextInvalidBlock)
 
         assertFalse(validationResult)
     }
 
     @Test
     fun `validateAndAdd() hash is invalid, returns false`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesisBlock = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        blockchainController.initGenesis()
+        val genesisBlock = blockchainController.lastBlock
 
         val nextValidBlock = getNextValidBlock(genesisBlock)
         val nextInvalidBlock = nextValidBlock.copy(nonce = nextValidBlock.nonce+1)
-        val validationResult = blockchain.validateAndAdd(nextInvalidBlock)
+        val validationResult = blockchainController.validateAndAdd(nextInvalidBlock)
 
         assertFalse(validationResult)
     }
 
     @Test
     fun `validate() when only genesis block exists, blockchain is valid`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
+        val blockchainController = getBlockchainController()
+        blockchainController.initGenesis()
 
-        assertTrue(blockchain.validate())
+        assertTrue(blockchainController.validate())
     }
 
     @Test
     fun `validate() when one block exists, blockchain is valid`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesis = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        val blockchain = blockchainController.getBlockchain()
+        blockchainController.initGenesis()
+        val genesis = blockchainController.lastBlock
 
         val newBlock = getNextValidBlock(genesis)
         blockchain.add(newBlock)
 
-        assertTrue(blockchain.validate())
+        assertTrue(blockchainController.validate())
     }
 
     @Test
     fun `validate() when two block exists, blockchain is valid`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesis = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        val blockchain = blockchainController.getBlockchain()
+        blockchainController.initGenesis()
+        val genesis = blockchainController.lastBlock
 
         val newBlock = getNextValidBlock(genesis)
         blockchain.add(newBlock)
@@ -116,27 +118,29 @@ class BlockchainTests {
         val newBlock2 = getNextValidBlock(newBlock)
         blockchain.add(newBlock2)
 
-        assertTrue(blockchain.validate())
+        assertTrue(blockchainController.validate())
     }
 
     @Test
     fun `validate() when one block has invalid prevHash, blockchain isn't valid`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesis = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        val blockchain = blockchainController.getBlockchain()
+        blockchainController.initGenesis()
+        val genesis = blockchainController.lastBlock
 
         val nextValidBlock = getNextValidBlock(genesis)
         val invalidBlock = nextValidBlock.copy(prevHash = byteArrayOf())
         blockchain.add(invalidBlock)
 
-        assertFalse(blockchain.validate())
+        assertFalse(blockchainController.validate())
     }
 
     @Test
     fun `validate() when two blocks have the same index, blockchain isn't valid`() {
-        val blockchain = getBlockchain()
-        blockchain.initGenesis()
-        val genesis = blockchain.getLastBlock()
+        val blockchainController = getBlockchainController()
+        val blockchain = blockchainController.getBlockchain()
+        blockchainController.initGenesis()
+        val genesis = blockchain.lastBlock
 
         val nextValidBlock1 = getNextValidBlock(genesis)
         blockchain.add(nextValidBlock1)
@@ -144,11 +148,11 @@ class BlockchainTests {
         val nextValidBlock2 = getNextValidBlock(nextValidBlock1).copy(index = 1)
         blockchain.add(nextValidBlock2)
 
-        assertFalse(blockchain.validate())
+        assertFalse(blockchainController.validate())
     }
 
-    private fun getBlockchain(): Blockchain {
-        return Blockchain(
+    private fun getBlockchainController(): BlockchainController {
+        return BlockchainController(
             blockHashProvider = blockHashProvider,
             personalBlockHashValidator = personalBlockHashValidator
         )
