@@ -1,50 +1,79 @@
 package me.vldf.blockchain.network
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import me.vldf.blockchain.models.Block
 import me.vldf.blockchain.network.client.BlockchainNodeDescriptor
 import me.vldf.blockchain.network.client.IdProvider
 import me.vldf.blockchain.network.client.NodeDescriptorsProvider
 import me.vldf.blockchain.network.client.SocketClient
+import me.vldf.blockchain.network.models.ApiResult
 import me.vldf.blockchain.network.models.Message
 import me.vldf.blockchain.network.models.MessageType
-import me.vldf.blockchain.network.models.bodies.BlockRequestMessageBody
-import me.vldf.blockchain.network.models.bodies.HashesListRequestMessageBody
-import me.vldf.blockchain.network.models.bodies.NewBlockMinedBody
+import me.vldf.blockchain.network.models.bodies.*
+import me.vldf.blockchain.services.platformLogger
+import java.net.ConnectException
 
+@InternalSerializationApi
 class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsProvider) {
     private val idProvider = IdProvider()
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private val logger by platformLogger()
+    private val json = Json {
+        this.ignoreUnknownKeys = true
+    }
 
     private val nodesDescriptors: List<BlockchainNodeDescriptor>
         get() = nodeDescriptorsProvider.getAllKnownNodes()
 
-    suspend fun notifyNewBlockMined(block: Block) {
-        val id = idProvider.getNextId()
+    fun notifyNewBlockMined(block: Block) {
+        coroutineScope.launch {
+            val id = idProvider.getNextId()
 
-        val message = Message(
-            id = id,
-            type = MessageType.NOTIFICATION_NEW_BLOCK_MINED,
-            body = NewBlockMinedBody(block)
-        )
+            val message = Message(
+                id = id,
+                type = MessageType.NOTIFICATION_NEW_BLOCK_MINED,
+                body = NewBlockMinedBody(block)
+            )
 
-        sendToEachNode(message)
+            sendToEachNode<EmptyMessageBody>(message)
+        }
     }
 
-    suspend fun requestBlockFromEachNode(fromIndex: Int, toIndex: Int): Int {
+    fun requestBlockFromEachNode(fromIndex: Int, toIndex: Int) {
+        coroutineScope.launch {
+            val id = idProvider.getNextId()
+
+            val message = Message(
+                id = id,
+                type = MessageType.REQUEST_BLOCKS,
+                body = BlockRequestMessageBody(fromIndex, toIndex)
+            )
+
+            sendToEachNode<BlockResponseMessageBody>(message)
+        }
+    }
+
+    suspend fun requestActualBlockchain(): List<Block> {
         val id = idProvider.getNextId()
 
         val message = Message(
             id = id,
             type = MessageType.REQUEST_BLOCKS,
-            body = BlockRequestMessageBody(fromIndex, toIndex)
+            body = BlockRequestMessageBody(0, 0)
         )
 
-        sendToEachNode(message)
+        val allChains = sendToEachNode<BlockResponseMessageBody>(message)
+        val blocks = allChains.mapNotNull { chain -> chain.result }
 
-        return id
+        return blocks.maxByOrNull { it.blocks.size }?.blocks.orEmpty()
     }
 
-    suspend fun requestHashesListFromEachNode(): Int {
+    suspend fun requestHashesListFromEachNode(): List<ApiResult<HashesListResponseMessageBody>> {
         val id = idProvider.getNextId()
 
         val message = Message(
@@ -53,29 +82,39 @@ class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsPr
             body = HashesListRequestMessageBody()
         )
 
-        sendToEachNode(message)
-
-        return id
+        return sendToEachNode(message)
     }
 
-    private suspend fun sendToEachNode(message: Message) {
-        nodesDescriptors.forEach { descriptor ->
+    private suspend inline fun <reified T : AbstractBlockchainMessageBody> sendToEachNode(message: Message): List<ApiResult<T>> {
+        return nodesDescriptors.map { descriptor ->
             descriptor.sendMessage(message)
         }
     }
 
-    private suspend fun BlockchainNodeDescriptor.sendMessage(message: Message) {
+    private suspend inline fun <reified T: AbstractBlockchainMessageBody> BlockchainNodeDescriptor.sendMessage(message: Message): ApiResult<T> {
         val client = SocketClient()
-        client.startSession(this.host, this.port)
+        return try {
+            client.startSession(this.host, this.port)
 
-        val messageSerialized = message.serialize()
-        client.sendData(messageSerialized)
+            val messageSerialized = message.serialize()
+            val resultJson = client.sendDataAndGetJsonResponse(messageSerialized)
 
-        client.stopSession()
+            resultJson.deserialize()
+        } catch (e: ConnectException) {
+            ApiResult.fromError(e.message ?: "unknown error")
+        } catch (e: Exception) {
+            logger.info(e.stackTraceToString())
+            ApiResult.fromError(e.message ?: "unknown error")
+        } finally {
+            client.stopSession()
+        }
     }
 
-    private fun Message.serialize(): ByteArray {
-        val json = Json.encodeToString(Message.serializer(), this)
-        return json.toByteArray()
+    private inline fun <reified T : AbstractBlockchainMessageBody> String.deserialize(): ApiResult<T> {
+        return json.decodeFromString(ApiResult.serializer(T::class.serializer()), this)
+    }
+
+    private fun Message.serialize(): String {
+        return this@NetworkClientFacade.json.encodeToString(Message.serializer(), this)
     }
 }

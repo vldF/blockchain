@@ -1,14 +1,19 @@
 package me.vldf.blockchain.blockchain
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.InternalSerializationApi
 import me.vldf.blockchain.models.Block
+import me.vldf.blockchain.network.NetworkClientFacade
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
 import org.jetbrains.annotations.TestOnly
 
+@InternalSerializationApi
 class BlockchainController(
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
+    private val networkClientFacade: NetworkClientFacade,
 ) {
     private val blockchain = Blockchain()
 
@@ -34,13 +39,19 @@ class BlockchainController(
     }
 
     fun validateAndAdd(block: Block): Boolean {
-        if (!personalBlockHashValidator.validateBlockHash(block)) {
+        if (block.index != 0 &&  !personalBlockHashValidator.validateBlockHash(block)) {
             logger.severe("validation of a single block failed: hash isn't valid $block")
             return false
         }
 
         val blocks = blockchain.blocks
-        val lastSavedBlock = blocks.last()
+        val lastSavedBlock = blocks.lastOrNull()
+        if (lastSavedBlock == null) {
+            // genesis node
+            blockchain.add(block)
+            return true
+        }
+
         if (lastSavedBlock.index > block.index) {
             logger.severe("validation of a single block failed: block is too old $block")
             return false
@@ -60,8 +71,18 @@ class BlockchainController(
         }
 
         blockchain.add(block)
+        logger.info("added new block with index ${block.index}")
 
         return true
+    }
+
+    fun syncBlockchainWithAllNodes() {
+        runBlocking {
+            val blocks = networkClientFacade.requestActualBlockchain()
+            for (block in blocks) {
+                validateAndAdd(block)
+            }
+        }
     }
 
     val lastBlock: Block
@@ -75,8 +96,15 @@ class BlockchainController(
         check(from <= to) { "the start index must be less than or equal to the end index" }
         check(from >= 0) { "the start index must be non-negative" }
         check(to <= blockchain.blockCount) { "the end index must be less than or equal to block count" }
+        check(to >= 0) { "end index must be non-negative" }
 
-        return blockchain.blocks.subList(from, to)
+        val blocks = blockchain.blocks
+
+        if (to == 0) {
+            return blocks.subList(from, blocks.size)
+        }
+
+        return blocks.subList(from, to)
     }
 
     fun getBlockHashes(): List<ByteArray> {
@@ -86,6 +114,10 @@ class BlockchainController(
     }
 
     fun initGenesis() {
+        if (blockchain.blockCount != 0) {
+            return
+        }
+
         val block = Block(
             index = 0,
             prevHash = "genesis".toByteArray(),

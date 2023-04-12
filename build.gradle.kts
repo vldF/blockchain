@@ -15,7 +15,7 @@ repositories {
 dependencies {
     implementation("io.ktor:ktor-network:$ktorVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
-
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
 
     testImplementation(kotlin("test"))
 }

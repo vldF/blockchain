@@ -7,17 +7,24 @@ import kotlinx.coroutines.Dispatchers
 
 class SocketClient {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-    private lateinit var socket: Socket
+    private var socket: Socket? = null
 
     suspend fun startSession(host: String, port: Int) {
         socket = aSocket(selectorManager).tcp().connect(host, port)
     }
 
-    suspend fun sendData(data: ByteArray) {
-        socket.openWriteChannel(autoFlush = true).writeFully(data)
+    suspend fun sendDataAndGetJsonResponse(json: String): String {
+        val writeChannel = socket!!.openWriteChannel(autoFlush = true)
+        writeChannel.writeStringUtf8(json + "\r\n")
+        writeChannel.flush()
+
+        val readChannel = socket!!.openReadChannel()
+        val resultJson = readChannel.readUTF8Line()
+        return resultJson!!
     }
 
     fun stopSession() {
-        socket.close()
+        selectorManager.close()
+        socket?.close()
     }
 }
