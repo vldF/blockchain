@@ -1,17 +1,22 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    kotlin("jvm") version "1.7.20"
+    kotlin("jvm") version "1.8.10"
+    kotlin("plugin.serialization") version "1.8.10"
 }
 
 group = "me.vldf.blockchain"
 version = "1.0-SNAPSHOT"
+
+val ktorVersion = "2.2.4"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    implementation("io.ktor:ktor-network:$ktorVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
+
     testImplementation(kotlin("test"))
 }
 
@@ -19,6 +24,6 @@ tasks.test {
     useJUnitPlatform()
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
+kotlin {
+    jvmToolchain(17)
 }

@@ -1,19 +1,25 @@
 package me.vldf.blockchain.miner
 
+import kotlinx.serialization.InternalSerializationApi
+import me.vldf.blockchain.blockchain.BlockchainController
 import me.vldf.blockchain.models.Block
-import me.vldf.blockchain.models.Blockchain
+import me.vldf.blockchain.network.NetworkClientFacade
 import me.vldf.blockchain.services.BlockDataProvider
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
+import kotlin.random.Random
 
+@InternalSerializationApi
 class Miner(
-    private val blockchain: Blockchain,
+    private val blockchainController: BlockchainController,
     private val dataProvider: BlockDataProvider,
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
+    private val networkClientFacade: NetworkClientFacade,
 ) {
     private val logger by platformLogger()
+
 
     private var state: MinerState = MinerState.Paused
 
@@ -27,7 +33,7 @@ class Miner(
     private fun mineNext() {
         val nextBlockData = dataProvider.getData()
 
-        val lastBlock = blockchain.getLastBlock()
+        val lastBlock = blockchainController.lastBlock
         val prevHash = blockHashProvider.computeHash(lastBlock)
         val index = lastBlock.index + 1
 
@@ -40,6 +46,7 @@ class Miner(
             if (isHashValid) {
                 val block = Block(index, prevHash, nextBlockData, nonce)
                 onNewBlockMined(block)
+                Thread.sleep((3000 * Random.nextFloat()).toLong())
 
                 return
             }
@@ -50,6 +57,8 @@ class Miner(
 
     private fun onNewBlockMined(block: Block) {
         logger.info("new block #${block.index} mined")
-        blockchain.validateAndAdd(block)
+        blockchainController.validateAndAdd(block)
+
+        networkClientFacade.notifyNewBlockMined(block)
     }
 }

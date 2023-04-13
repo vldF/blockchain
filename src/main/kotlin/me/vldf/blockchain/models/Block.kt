@@ -1,5 +1,8 @@
 package me.vldf.blockchain.models
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Block(
     val index: Int,
     val prevHash: ByteArray,
