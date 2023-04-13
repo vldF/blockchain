@@ -10,17 +10,24 @@ class SocketClient {
     private var socket: Socket? = null
 
     suspend fun startSession(host: String, port: Int) {
-        socket = aSocket(selectorManager).tcp().connect(host, port)
+        socket = aSocket(selectorManager).tcp().connect(host, port) {
+            this.socketTimeout = 10 * 1000 // 10 s
+        }
     }
 
     suspend fun sendDataAndGetJsonResponse(json: String): String {
-        val writeChannel = socket!!.openWriteChannel(autoFlush = true)
-        writeChannel.writeStringUtf8(json + "\r\n")
-        writeChannel.flush()
+        var writeChannel: ByteWriteChannel? = null
+
+        try {
+            writeChannel = socket!!.openWriteChannel(autoFlush = true)
+            writeChannel.writeStringUtf8(json + "\r\n")
+            writeChannel.flush()
+        } finally {
+            writeChannel?.close()
+        }
 
         val readChannel = socket!!.openReadChannel()
-        val resultJson = readChannel.readUTF8Line()
-        return resultJson!!
+        return readChannel.readUTF8Line()!!
     }
 
     fun stopSession() {

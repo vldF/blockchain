@@ -9,6 +9,11 @@ class Blockchain {
         blocksInternal.add(block)
     }
 
+    fun replace(blocks: List<Block>) {
+        blocksInternal.clear()
+        blocksInternal.addAll(blocks)
+    }
+
     val blocks: List<Block>
         get() = blocksInternal.toList()
 

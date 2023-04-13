@@ -46,11 +46,14 @@ class SocketServer(
                     val jsonResponse = Json.encodeToString(response) + "\r\n"
 
                     sendChannel.writeStringUtf8(jsonResponse)
-                    withContext(Dispatchers.IO) {
-                        socket.close()
-                    }
+                } catch (_: SocketTimeoutException) {
+                    // do nothing
                 } catch (e: Exception) {
                     logger.warning(e.stackTraceToString())
+                } finally {
+                    withContext(Dispatchers.IO) {
+                        sendChannel.close()
+                    }
                 }
             }
         }

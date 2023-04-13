@@ -8,6 +8,7 @@ import me.vldf.blockchain.services.BlockDataProvider
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
+import kotlin.random.Random
 
 @InternalSerializationApi
 class Miner(
@@ -45,7 +46,7 @@ class Miner(
             if (isHashValid) {
                 val block = Block(index, prevHash, nextBlockData, nonce)
                 onNewBlockMined(block)
-                Thread.sleep(1000)
+                Thread.sleep((3000 * Random.nextFloat()).toLong())
 
                 return
             }

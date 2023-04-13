@@ -17,6 +17,7 @@ import me.vldf.blockchain.network.models.MessageType
 import me.vldf.blockchain.network.models.bodies.*
 import me.vldf.blockchain.services.platformLogger
 import java.net.ConnectException
+import java.net.SocketTimeoutException
 
 @InternalSerializationApi
 class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsProvider) {
@@ -58,13 +59,13 @@ class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsPr
         }
     }
 
-    suspend fun requestActualBlockchain(): List<Block> {
+    suspend fun requestActualBlockchain(startIndex: Int): List<Block> {
         val id = idProvider.getNextId()
 
         val message = Message(
             id = id,
             type = MessageType.REQUEST_BLOCKS,
-            body = BlockRequestMessageBody(0, 0)
+            body = BlockRequestMessageBody(startIndex, 0)
         )
 
         val allChains = sendToEachNode<BlockResponseMessageBody>(message)
@@ -93,6 +94,7 @@ class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsPr
 
     private suspend inline fun <reified T: AbstractBlockchainMessageBody> BlockchainNodeDescriptor.sendMessage(message: Message): ApiResult<T> {
         val client = SocketClient()
+
         return try {
             client.startSession(this.host, this.port)
 
@@ -102,6 +104,8 @@ class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsPr
             resultJson.deserialize()
         } catch (e: ConnectException) {
             ApiResult.fromError(e.message ?: "unknown error")
+        } catch (_: SocketTimeoutException) {
+            ApiResult.fromError("timeout")
         } catch (e: Exception) {
             logger.info(e.stackTraceToString())
             ApiResult.fromError(e.message ?: "unknown error")
