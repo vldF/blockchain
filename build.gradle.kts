@@ -1,6 +1,9 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
+
 plugins {
     kotlin("jvm") version "1.8.10"
     kotlin("plugin.serialization") version "1.8.10"
+    id("io.ktor.plugin") version "2.1.3"
 }
 
 group = "me.vldf.blockchain"
@@ -27,3 +30,25 @@ tasks.test {
 kotlin {
     jvmToolchain(17)
 }
+
+application {
+    mainClass.set("me.vldf.blockchain.MainKt")
+}
+
+ktor {
+    fatJar {
+        archivesName.set("blockchain.jar")
+    }
+}
+
+val distZip by tasks
+distZip.enabled = false
+
+val distTar by tasks
+distTar.enabled = false
+
+val shadowDistTar by tasks
+shadowDistTar.enabled = false
+
+val shadowDistZip by tasks
+shadowDistZip.enabled = false
