@@ -54,6 +54,7 @@ class RequestMessageProcessor(private val blockchainController: BlockchainContro
         body: NewBlockMinedBody
     ): ApiResult<EmptyMessageBody> {
         return safeInvoke {
+            logger.info("new block message is processing for block with index ${body.block.index}")
             blockchainController.validateAndAdd(body.block)
 
             EmptyMessageBody

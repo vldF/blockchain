@@ -10,11 +10,18 @@ class PersonalBlockHashValidator(private val blockHashProvider: BlockHashProvide
     }
 
     fun isHashValid(hash: ByteArray): Boolean {
-        val lastByte = hash.last()
-        return (lastByte and miningComplexity) == 0.toByte()
+        val firstByte = hash[hash.size - 1]
+        val secondByte = hash[hash.size - 2]
+        val thirdByte = hash[hash.size - 3]
+
+        return  firstByte == 0.toByte() && secondByte == 0.toByte() && isByteMatchesMask(thirdByte)
+    }
+
+    private fun isByteMatchesMask(byte: Byte): Boolean {
+        return (byte and validHashMask) == 0.toByte()
     }
 
     companion object {
-        private const val miningComplexity: Byte = 0x11111111.toByte() // todo
+        private const val validHashMask: Byte = 0b00000111.toByte()
     }
 }

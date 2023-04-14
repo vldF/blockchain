@@ -6,7 +6,6 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -35,26 +34,24 @@ class SocketServer(
         while (true) {
             val socket = socketServer.accept()
             val receiveChannel = socket.openReadChannel()
-            val sendChannel = socket.openWriteChannel(autoFlush = true)
+            val sendChannel = socket.openWriteChannel()
 
-            while (!receiveChannel.isClosedForRead) {
-                try {
-                    val requestJson = receiveChannel.readUTF8Line()
-                    val message = Json.decodeFromString(Message.serializer(), requestJson!!)
+            try {
+                val requestJson = receiveChannel.readUTF8Line()
+                val message = Json.decodeFromString(Message.serializer(), requestJson!!)
 
-                    val response = requestMessageProcessor.processMessageAndGetResponse(message)
-                    val jsonResponse = Json.encodeToString(response) + "\r\n"
+                val response = requestMessageProcessor.processMessageAndGetResponse(message)
+                val jsonResponse = Json.encodeToString(response) + "\n"
 
-                    sendChannel.writeStringUtf8(jsonResponse)
-                } catch (_: SocketTimeoutException) {
-                    // do nothing
-                } catch (e: Exception) {
-                    logger.warning(e.stackTraceToString())
-                } finally {
-                    withContext(Dispatchers.IO) {
-                        sendChannel.close()
-                    }
-                }
+                sendChannel.writeStringUtf8(jsonResponse)
+                sendChannel.flush()
+            } catch (_: SocketTimeoutException) {
+                // do nothing
+            } catch (e: Exception) {
+                logger.warning(e.stackTraceToString())
+            } finally {
+                sendChannel.close()
+                receiveChannel.cancel()
             }
         }
     }

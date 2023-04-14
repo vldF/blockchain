@@ -19,8 +19,8 @@ class SocketClient {
         var writeChannel: ByteWriteChannel? = null
 
         try {
-            writeChannel = socket!!.openWriteChannel(autoFlush = true)
-            writeChannel.writeStringUtf8(json + "\r\n")
+            writeChannel = socket!!.openWriteChannel()
+            writeChannel.writeStringUtf8(json + "\n")
             writeChannel.flush()
         } finally {
             writeChannel?.close()
@@ -31,7 +31,7 @@ class SocketClient {
     }
 
     fun stopSession() {
-        selectorManager.close()
         socket?.close()
+        selectorManager.close()
     }
 }
