@@ -10,14 +10,14 @@ import me.vldf.blockchain.services.platformLogger
 import org.jetbrains.annotations.TestOnly
 import java.util.logging.Logger
 
-@InternalSerializationApi
+
+@OptIn(InternalSerializationApi::class)
 class BlockchainController(
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
     private val networkClientFacade: NetworkClientFacade,
 ) {
     private val blockchain = Blockchain()
-    private var isValidationErrorProcessing = false
 
     private val logger by platformLogger()
 
