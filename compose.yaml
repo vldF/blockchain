@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  node1:
+    build:
+      context: .
+    ports:
+      - "1042:1042"
+    entrypoint: java -jar ./app/blockchain-all.jar
+    command: --port 1042 --nodes "node2:1043,node3:1044"
+
+  node2:
+    build:
+      context: .
+    ports:
+      - "1043:1043"
+    entrypoint: java -jar ./app/blockchain-all.jar
+    command: --port 1043 --nodes "node1:1042,node3:1044"
+
+  node3:
+    build:
+      context: .
+    ports:
+      - "1044:1044"
+    entrypoint: java -jar ./app/blockchain-all.jar
+    command: --port 1044 --nodes "node1:1042,node2:1043"

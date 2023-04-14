@@ -1,7 +1,6 @@
 package me.vldf.blockchain.blockchain
 
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.InternalSerializationApi
 import me.vldf.blockchain.models.Block
 import me.vldf.blockchain.network.NetworkClientFacade
 import me.vldf.blockchain.services.BlockHashProvider
@@ -10,14 +9,15 @@ import me.vldf.blockchain.services.platformLogger
 import org.jetbrains.annotations.TestOnly
 import java.util.logging.Logger
 
-@InternalSerializationApi
+
 class BlockchainController(
     private val blockHashProvider: BlockHashProvider,
     private val personalBlockHashValidator: PersonalBlockHashValidator,
-    private val networkClientFacade: NetworkClientFacade,
+    private val networkClientFacade: NetworkClientFacade
 ) {
     private val blockchain = Blockchain()
-    private var isValidationErrorProcessing = false
+
+    private val minerRestartListeners = mutableListOf<() -> Unit>()
 
     private val logger by platformLogger()
 
@@ -69,6 +69,7 @@ class BlockchainController(
 
         blockchain.add(block)
         logger.info("added new block with index ${block.index}")
+        restartMiner()
 
         return true
     }
@@ -78,7 +79,9 @@ class BlockchainController(
             logger.info("validation error handling")
 
             val lastCommonIndex = getLastCommonBlockIndex()
+            logger.info("after getLastCommonBlockIndex()")
             val newBlocks = networkClientFacade.requestActualBlockchain(lastCommonIndex)
+            logger.info("after requestActualBlockchain()")
 
             combineBlockchainsAndReplace(newBlocks)
 
@@ -117,6 +120,7 @@ class BlockchainController(
             for (block in blocks) {
                 validateAndAdd(block)
             }
+            restartMiner()
         }
     }
 
@@ -133,6 +137,7 @@ class BlockchainController(
 
     private fun replaceBlockchain(newBlockchain: List<Block>) {
         blockchain.replace(newBlockchain)
+        restartMiner()
     }
 
     val lastBlock: Block
@@ -181,6 +186,14 @@ class BlockchainController(
     @TestOnly
     fun getBlockchain(): Blockchain {
         return blockchain
+    }
+
+    fun restartMiner() {
+        minerRestartListeners.forEach { listener -> listener.invoke() }
+    }
+
+    fun addMinerRestartListener(listener: () -> Unit) {
+        minerRestartListeners.add(listener)
     }
 
     private companion object {

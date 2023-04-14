@@ -19,7 +19,7 @@ import me.vldf.blockchain.services.platformLogger
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 
-@InternalSerializationApi
+@OptIn(InternalSerializationApi::class)
 class NetworkClientFacade(private val nodeDescriptorsProvider: NodeDescriptorsProvider) {
     private val idProvider = IdProvider()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)

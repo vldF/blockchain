@@ -8,7 +8,6 @@ import me.vldf.blockchain.services.BlockDataProvider
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import me.vldf.blockchain.services.platformLogger
-import kotlin.random.Random
 
 @InternalSerializationApi
 class Miner(
@@ -20,12 +19,15 @@ class Miner(
 ) {
     private val logger by platformLogger()
 
+    init {
+        blockchainController.addMinerRestartListener { toRestartState() }
+    }
 
-    private var state: MinerState = MinerState.Paused
+    private var state: MinerState = MinerState.Restart
 
     fun startMining() {
-        state = MinerState.Run
         while (true) {
+            state = MinerState.Run
             mineNext()
         }
     }
@@ -46,7 +48,6 @@ class Miner(
             if (isHashValid) {
                 val block = Block(index, prevHash, nextBlockData, nonce)
                 onNewBlockMined(block)
-                Thread.sleep((3000 * Random.nextFloat()).toLong())
 
                 return
             }
@@ -55,9 +56,16 @@ class Miner(
         }
     }
 
+    private fun toRestartState() {
+        state = MinerState.Restart
+    }
+
     private fun onNewBlockMined(block: Block) {
         logger.info("new block #${block.index} mined")
-        blockchainController.validateAndAdd(block)
+        val result = blockchainController.validateAndAdd(block)
+        if (!result) {
+            return
+        }
 
         networkClientFacade.notifyNewBlockMined(block)
     }

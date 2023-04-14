@@ -2,6 +2,8 @@ package me.vldf.blockchain.tests
 
 import me.vldf.blockchain.blockchain.BlockchainController
 import me.vldf.blockchain.models.Block
+import me.vldf.blockchain.network.NetworkClientFacade
+import me.vldf.blockchain.network.client.NodeDescriptorsProvider
 import me.vldf.blockchain.services.BlockHashProvider
 import me.vldf.blockchain.services.PersonalBlockHashValidator
 import kotlin.test.Test
@@ -152,9 +154,13 @@ class BlockchainControllerTests {
     }
 
     private fun getBlockchainController(): BlockchainController {
+        val nodesDescriptorsProvider = NodeDescriptorsProvider()
+        val networkClientFacade = NetworkClientFacade(nodesDescriptorsProvider)
+
         return BlockchainController(
             blockHashProvider = blockHashProvider,
-            personalBlockHashValidator = personalBlockHashValidator
+            personalBlockHashValidator = personalBlockHashValidator,
+            networkClientFacade = networkClientFacade
         )
     }
 

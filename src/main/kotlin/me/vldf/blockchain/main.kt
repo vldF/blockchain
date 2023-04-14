@@ -70,6 +70,7 @@ private fun run(
             personalBlockHashValidator,
             networkClientFacade
         )
+        Thread.sleep(5000)
         miner.startMining()
     } else {
         while (true) { Thread.yield() }
